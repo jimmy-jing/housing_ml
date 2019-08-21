@@ -79,29 +79,29 @@ class HousingImpute:
     def MasVnrType_imputer(self):
         #these are datapoints with no type so area must also be zero
         missing_mas = self.df[self.df.MasVnrType.isnull()].index
-        self.df.loc[missing_mas,'MasVnrType']='No_MVT'
+        self.df.loc[missing_mas,'MasVnrType']='None'
         self.df.loc[missing_mas,'MasVnrArea']=0
     
     def BsmtQual_imputer(self):
         #impute for all missing bsmt rows that are due to no bsmt, not completely random missing values
         missing_basement_indices = self.df[(self.df.BsmtQual.isnull())&(self.df.BsmtCond.isnull())].index
-        self.df.loc[missing_basement_indices,'BsmtQual'] = 'No_BQ'
-        self.df.loc[missing_basement_indices,'BsmtCond'] = 'No_BC'
-        self.df.loc[missing_basement_indices,'BsmtExposure'] = 'No_BE'
-        self.df.loc[missing_basement_indices,'BsmtFinType1'] = 'No_BFT1'
-        self.df.loc[missing_basement_indices,'BsmtFinType2'] = 'No_BFT2'
+        self.df.loc[missing_basement_indices,'BsmtQual'] = 'No_Bsmt'
+        self.df.loc[missing_basement_indices,'BsmtCond'] = 'No_Bsmt'
+        self.df.loc[missing_basement_indices,'BsmtExposure'] = 'No_Bsmt'
+        self.df.loc[missing_basement_indices,'BsmtFinType1'] = 'No_Bsmt'
+        self.df.loc[missing_basement_indices,'BsmtFinType2'] = 'No_Bsmt'
     
     def GarageType_imputer(self):
         #impute for missing garage values due to not having a garage
         missing_garage_indices = self.df[(self.df.GarageType.isnull())&(self.df.GarageQual.isnull())&(self.df.GarageCond.isnull())].index
-        self.df.loc[missing_garage_indices,'GarageType']='No_GT'
+        self.df.loc[missing_garage_indices,'GarageType']='No_G'
         
         #most like a garage built the year the house is built rather than a garage in the year the house had a remodeling
         self.df.loc[missing_garage_indices,'GarageYrBlt']= self.df.loc[self.df.GarageYrBlt.isnull(),'YearBuilt'] 
         
-        self.df.loc[missing_garage_indices,'GarageFinish']='No_GF'
-        self.df.loc[missing_garage_indices,'GarageQual'] = 'No_GQ'
-        self.df.loc[missing_garage_indices,'GarageCond'] = 'No_GC'
+        self.df.loc[missing_garage_indices,'GarageFinish']='No_G'
+        self.df.loc[missing_garage_indices,'GarageQual'] = 'No_G'
+        self.df.loc[missing_garage_indices,'GarageCond'] = 'No_G'
     
     def Alley_imputer(self):
         #impute all the missing Alleys as they do not have alleys
