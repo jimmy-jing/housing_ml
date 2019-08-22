@@ -1,0 +1,411 @@
+---
+title: "em_housingml_featselect.Rmd"
+author: "Eric Meyers"
+date: "8/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+## Ames Housing ML Project: Feature Selection
+Prior to this part of the project Ames housing data has been cleaned and imputed in Python/Jupyter Notebooks, and consolidated by the team. I have generated features I believe may reduce the risks of multicolinearity and the curse of dimensionality. The goal in this phase is to test with rigor two popular methods for feature selection (AIC/BIC & Lasso Regression), each against the original data set and the data set with added/combined features (total four outputs). The intended outcome is to identify the best feature set that minimizes residual errors, reduces dimensionality, and maximizes accuracy in our model; all without overfitting or inflating our accuracy with multicollinearity.
+
+##Steps:
+- Load: Load in cleaned, imputed, feature-engineered Ames Housing dataset.
+- Baseline: Fit saturated model for baseline RSE & R^2 for comparison.
+- AIC/BIC #1: Run AIC & BIC on cleaned/imputed raw data set, evaluate AIC scores, RSEs, & R^2s.
+- Lasso #1: Build a pipeline and fit a Lasso on cleaned/imputed raw data set, evaluate scores.
+- AIC/BIC #2: Run AIC & BIC on feature engineered dataset, evaluate scores.
+- Lasso #2: Build a pipeline and fit a Lasso on feature engineered dataset, evaluate scores.
+- Conclude ideal feature set.
+
+## Import Data & Check Dimensions/Summary
+
+```{r read ames}
+ames <- read.csv('./ames.csv')
+class(ames)
+summary(ames)
+dim(ames)
+head(ames)
+#Instantiate cleaned/imputed original data set; also drop index column.
+ames.orig <- ames[,2:81]
+```
+
+## Baseline: Fit Saturated MLR model without new features:
+
+To identify a baseline, we take the original data set (cleaned/imputed) and run an MLR without removing or adding features and see what RSE & R^2 are. *We are aware there is inevitably an inflation in R^2 due to multicollinearity, so relative RSE may serve as a better baseline against AIC/BIC farther below:
+```{r MLR fit}
+model.saturated <- lm(SalePrice ~ ., data = ames.orig)
+summary(model.saturated)
+#RSE: 24210
+#R^2: 0.9205*
+```
+Results: Knowing that our saturated model has an inflated R^2 of 92% (due to multicollinearity), and an RSE of 24210, this will be a helpful baseline for our AIC/BIC, Lasso, and Feature Engineering refinements below.
+
+## Feature Selection #1: AIC & BIC on Original Data Set:
+
+```{r AIC/BIC Original}
+library(MASS)
+#prep empty and full models for forward/backward AIC:
+model.empty = lm(SalePrice ~ 1, data = ames.orig) #The model with an intercept ONLY.
+model.full = lm(SalePrice ~ ., data = ames.orig) #The model with ALL variables.
+scope = list(lower = formula(model.empty), upper = formula(model.full))
+
+#run forward AIC: AIC = 29,595.11
+forwardAIC = step(model.empty, scope, direction = "forward", k = 2)
+#store forward AIC as model
+model.forAIC <- lm(SalePrice ~ OverallQual + GrLivArea + Neighborhood + BsmtFinSF1 + RoofMatl + MSSubClass + BsmtExposure + KitchenQual + Condition2 + SaleCondition + LotArea + YearBuilt + OverallCond + PoolQC + MasVnrArea + BedroomAbvGr + BldgType + Exterior1st + GarageCars + GarageFinish + TotalBsmtSF + Functional + Condition1 + ExterQual + MasVnrType + BsmtCond + LandContour + MoSold + ScreenPorch + LowQualFinSF + LotConfig + LandSlope + TotRmsAbvGrd + KitchenAbvGr + Street + GarageArea + BsmtFinType2 + BsmtQual + Fireplaces + FireplaceQu + RoofStyle + WoodDeckSF + PoolArea + ExterCond + Utilities + GarageQual + X3SsnPorch, data = ames.orig)
+summary(model.forAIC)
+#RSE: 24170
+#R^2: 0.9156
+
+#run backward AIC: AIC = 29,594.85
+backwardAIC = step(model.full, scope, direction = "backward", k = 2)
+#store backward AIC as model
+model.backAIC <- lm(SalePrice ~ MSSubClass + MSZoning + LotArea + Street + LandContour + 
+    Utilities + LotConfig + LandSlope + Neighborhood + Condition1 + 
+    Condition2 + BldgType + OverallQual + OverallCond + YearBuilt + 
+    RoofStyle + RoofMatl + Exterior1st + MasVnrType + MasVnrArea + 
+    ExterQual + ExterCond + BsmtQual + BsmtCond + BsmtExposure + 
+    BsmtFinSF1 + BsmtFinSF2 + BsmtUnfSF + X1stFlrSF + X2ndFlrSF + 
+    BedroomAbvGr + KitchenAbvGr + KitchenQual + TotRmsAbvGrd + 
+    Functional + Fireplaces + FireplaceQu + GarageFinish + GarageCars + 
+    GarageArea + GarageQual + WoodDeckSF + OpenPorchSF + X3SsnPorch + 
+    ScreenPorch + PoolArea + PoolQC + MoSold + SaleType, data = ames.orig)
+summary(model.backAIC)
+#RSE: 24110
+#R^2: 0.9165
+
+#Run both AIC on empty model:
+bothAIC.empty = step(model.empty, scope, direction = "both", k = 2)
+#Same results as forward AIC
+
+#Run both AIC on full model
+bothAIC.full = step(model.full, scope, direction = "both", k = 2)
+#Same results as backward AIC
+
+#Foward BIC: AIC = 29,799.24
+forwardBIC = step(model.empty, scope, direction = "forward", k = log(50))
+#Store forward BIC model:
+model.forBIC <- lm(SalePrice ~ OverallQual + GrLivArea + Neighborhood + BsmtFinSF1 + 
+    RoofMatl + MSSubClass + BsmtExposure + KitchenQual + Condition2 + 
+    SaleCondition + LotArea + YearBuilt + OverallCond + PoolQC + 
+    MasVnrArea + BedroomAbvGr + BldgType + GarageCars + ExterQual + 
+    GarageFinish + TotalBsmtSF + MasVnrType + ScreenPorch + LowQualFinSF + 
+    BsmtCond + KitchenAbvGr + TotRmsAbvGrd + Street + Functional + 
+    MoSold + WoodDeckSF, data = ames.orig)
+summary(model.forBIC)
+#RSE: 24890
+#R^2: 0.09074
+
+#Backward BIC: AIC = 29,801.58
+backwardBIC = step(model.full, scope, direction = "backward", k = log(50))
+#Store backward BIC model:
+model.backBIC <- lm(SalePrice ~ MSSubClass + LotArea + Street + LandSlope + Neighborhood + 
+    Condition2 + BldgType + OverallQual + OverallCond + YearBuilt + 
+    RoofMatl + MasVnrType + MasVnrArea + ExterQual + BsmtQual + 
+    BsmtCond + BsmtExposure + BsmtFinSF1 + BsmtFinSF2 + BsmtUnfSF + 
+    X1stFlrSF + X2ndFlrSF + BedroomAbvGr + KitchenAbvGr + KitchenQual + 
+    TotRmsAbvGrd + Functional + Fireplaces + FireplaceQu + GarageFinish + 
+    GarageCars + GarageArea + ScreenPorch + PoolQC + SaleCondition, data = ames.orig)
+summary(model.backBIC)
+#RSE: 24790
+#R^2: 0.9085
+
+
+#Run BOTH BIC on empty model:
+bothBIC.empty = step(model.empty, scope, direction = "both", k = log(50))
+#Result: same as forward BIC
+
+#Run BOTH BIC on full model:
+bothBIC.full = step(model.full, scope, direction = "both", k = log(50))
+#Result:same as backward BIC
+
+AIC(model.saturated, model.forAIC, model.backAIC, model.forBIC, model.backBIC)
+```
+
+Results:
+The *backward AIC* outputs the optimal results with the lowest AIC score, a lower MSE than our baseline (saturated model), and an R^2 only slightly below our baseline model (as expected). The idea of performing AIC/BIC first is to reduce multicollinearity from the model by removing features that are colinear with one another. Let's see how penalized (Lasso) regression selects features on our original data set.
+
+## Features Selection #2: Fit Lasso on Original Data Set:
+Use Lasso penalized regression on original data set to understand optimal lambda & key features.
+
+```{r Lasso Original}
+library(glmnet)
+x <- model.matrix(SalePrice ~ ., data = ames.orig)
+y <- ames.orig$SalePrice
+
+set.seed(21)
+#Create train and test set:
+train = sample(1:nrow(x), 75*nrow(x)/100)
+test = (-train)
+y.test = y[test]
+#test above to ensure accuracy:
+length(train)/nrow(x)
+length(y.test)/nrow(x)
+
+#create grid for lambda iterations 100,000 - 0.01
+grid <- 10^seq(5, -2, length = 100)
+
+#Fit lasso with grid search iterator
+lasso.models <- glmnet(x, y, alpha = 1, lambda = grid)
+dim(coef(lasso.models))
+coef(lasso.models)
+#plot feature penalties as lambda decreases
+plot(lasso.models, xvar = "lambda", label = TRUE, main = "Lasso Regression")
+
+#CROSS VALIDATION
+#fit lasso regressor on training set with grid search on lambda
+lasso.models.train <- glmnet(x[train, ], y[train], alpha = 1, lambda = grid)
+lasso.lambda10 <- predict(lasso.models.train, s = 10, newx = x[test, ])
+mean((lasso.lambda10 - y.test)^2)
+#MSE: 4,307,083,580
+lasso.lambda1 <- predict(lasso.models.train, s = 1, newx = x[test, ])
+mean((lasso.lambda1 - y.test)^2)
+#MSE: 4,407012,811: WORSE
+lasso.lambda100 <- predict(lasso.models.train, s = 100, newx = x[test, ])
+mean((lasso.lambda100 - y.test)^2)
+#MSE: 3,417,787,876 BETTER
+lasso.lambda1000 <- predict(lasso.models.train, s = 1000, newx = x[test, ])
+mean((lasso.lambda1000 - y.test)^2)
+#MSE: 1,070,930,201 EVEN BETTER - ok, high lambda.
+
+
+# k-Folds Cross Validation, k = 10
+set.seed(21)
+cv.lasso.out <- cv.glmnet(x[test, ], y[test], lambda = grid, alpha = 1, nfolds = 10)
+plot(cv.lasso.out, main = "Lasso Regression")
+bestlambda.lasso <- cv.lasso.out$lambda.min
+bestlambda.lasso
+log(bestlambda.lasso)
+#Best Lambda = 890.2151
+
+#What is the test MSE associated with best lasso lambda?
+lasso.bestlambdatrain <- predict(lasso.models.train, s = bestlambda.lasso, newx = x[test, ])
+mean((lasso.bestlambdatrain - y.test)^2)
+#Best MSE: 1,063,710,338
+
+#Now fit lasso with best lambda and identify coefficients
+lasso.model.em <- glmnet(x, y, alpha = 1, lambda = 890.2151)
+predict(lasso.model.em, type = "coefficients", s = 890.2151)
+lasso.models.train.cv <- cv.glmnet(x[train, ], y[train], alpha = 1, lambda = grid)
+max(1 - lasso.models.train.cv$cvm/var(y))
+#R^2: 0.7544
+```
+Results:
+lasso.model.em now contains the ideal feature set (80 of roughly 250 features too long to type) according to Lasso, with a lower accuracy score and higher MSE than our first two optimized models. One noteworthy observation is that Lasso outputs individually dummified features; whereas AIC/BIC output combined features even if dummification is used automatically in calculations. This feature set will be exported and tested against others in a pipeline in the model selection phase. Now let's turn to the feature-engineered dataset and compare results.
+
+
+## Feature Selection #3: AIC/BIC on Feature-Engineered Data Set:
+
+First, we must take the original imported data set and remove composite features. One of the features is the transformed target (SalePrice). Removing composite features will reduce auto-correlation and multicollinearity.
+
+```{r Feature-Engineered Setup}
+dim(ames)
+ames.eng <- ames[,2:92]
+head(ames.eng)
+#create new data set and remove composite features
+ames.eng <- ames.eng[, -c(17,18,27,28,30,31,32,33,35,38,43,44,45,46,56,57,61,62,63,64,66,67,68,71,80,82,83,88)]
+
+#Now fit a baseline regression of the saturated feature-engineered dataset.
+
+model.eng.saturated <- lm(TransSalePrice ~ ., data = ames.eng)
+summary(model.eng.saturated)
+#RSE: 0.1061
+#R^2: 0.9388
+#Initial observation, RSE WAY lower than first baseline by a magnitude of over 10^6 and R^2 a percentage point higher, but not trusting this as there is inevitably inflation and multicollinearity in this model.
+```
+
+
+```{r AIC/BIC Feature-Engineered}
+#prep empty and full models for forward/backward AIC:
+model.eng.empty = lm(TransSalePrice ~ 1, data = ames.eng) #The model with an intercept ONLY.
+model.eng.full = lm(TransSalePrice ~ ., data = ames.eng) #The model with ALL variables.
+scope = list(lower = formula(model.eng.empty), upper = formula(model.eng.full))
+
+#run forward AIC: AIC = -6414.08
+forwardAIC = step(model.eng.empty, scope, direction = "forward", k = 2)
+#store forward AIC as model
+model.eng.forAIC <- lm(TransSalePrice ~ TotalSF + Neighborhood + OverallQualCond + RoofMatl + 
+    YearBuilt + BsmtUnfSF + Condition2 + MSZoning + SaleCondition + 
+    FireplacesQu + Functional + HeatingQC + TotRmsAbvGrd + ScreenPorch + 
+    LotArea + Condition1 + CentralAir + KitchenQual + Heating + 
+    BldgType + Exterior1st + SaleType + BsmtFinSF2 + Foundation + 
+    LotFrontage + LotConfig + BsmtQualCondPlus + HalfBath + LandSlope + 
+    YearRemodAdd + GarageQualCond + FullBath + BsmtFullBath + 
+    MasVnrArea + Street + RoofStyle + X3SsnPorch + KitchenAbvGr + 
+    Utilities + ExterQualCond + Fence + LandContour, data = ames.eng)
+summary(model.eng.forAIC)
+#RSE: 0.1063
+#R^2: 0.9358
+
+#run backward AIC: AIC = -6415.46
+backwardAIC = step(model.eng.full, scope, direction = "backward", k = 2)
+#store backward AIC as model
+model.eng.backAIC <- lm(TransSalePrice ~ MSSubClass + MSZoning + LotFrontage + LotArea + 
+    Street + LandContour + Utilities + LotConfig + LandSlope + 
+    Neighborhood + Condition1 + Condition2 + HouseStyle + YearBuilt + 
+    YearRemodAdd + RoofStyle + RoofMatl + Exterior1st + MasVnrArea + 
+    Foundation + BsmtFinSF2 + BsmtUnfSF + Heating + HeatingQC + 
+    CentralAir + BsmtFullBath + FullBath + HalfBath + KitchenAbvGr + 
+    KitchenQual + TotRmsAbvGrd + Functional + X3SsnPorch + ScreenPorch + 
+    Fence + SaleType + SaleCondition + TotalSF + OverallQualCond + 
+    ExterQualCond + BsmtQualCondPlus + FireplacesQu + GarageQualCond, data = ames.eng)
+summary(model.eng.backAIC)
+#RSE: 0.1061
+#R^2: 0.9362
+
+#Run both AIC on empty model:
+bothAIC.empty = step(model.eng.empty, scope, direction = "both", k = 2)
+#Same results as forward AIC
+
+#Run both AIC on full model
+bothAIC.full = step(model.eng.full, scope, direction = "both", k = 2)
+#Same results as backward AIC
+
+#Foward BIC: AIC = -6186.61
+forwardBIC = step(model.eng.empty, scope, direction = "forward", k = log(50))
+#Store forward BIC model:
+model.eng.forBIC <- lm(TransSalePrice ~ TotalSF + Neighborhood + OverallQualCond + RoofMatl + 
+    YearBuilt + BsmtUnfSF + Condition2 + MSZoning + SaleCondition + 
+    FireplacesQu + Functional + HeatingQC + TotRmsAbvGrd + ScreenPorch + 
+    LotArea + KitchenQual + CentralAir + Heating + LotFrontage + 
+    KitchenAbvGr + BsmtFinSF2 + Condition1 + BsmtQualCondPlus + 
+    HalfBath + LandSlope + Street + YearRemodAdd + FullBath + 
+    BsmtFullBath + GarageQualCond, data = ames.eng)
+summary(model.eng.forBIC)
+#RSE: 0.11
+#R^2: 0.09288
+
+#Backward BIC: AIC = -6186.46
+backwardBIC = step(model.eng.full, scope, direction = "backward", k = log(50))
+#Store backward BIC model:
+model.eng.backBIC <- lm(TransSalePrice ~ MSZoning + LotFrontage + LotArea + Street + 
+    LotConfig + LandSlope + Neighborhood + Condition1 + Condition2 + 
+    YearBuilt + YearRemodAdd + RoofMatl + Foundation + BsmtFinSF2 + 
+    BsmtUnfSF + Heating + HeatingQC + CentralAir + BsmtFullBath + 
+    FullBath + HalfBath + KitchenAbvGr + KitchenQual + TotRmsAbvGrd + 
+    Functional + ScreenPorch + SaleCondition + TotalSF + OverallQualCond + 
+    BsmtQualCondPlus + FireplacesQu + GarageQualCond, data = ames.eng)
+summary(model.eng.backBIC)
+#RSE: 0.109
+#R^2: 0.9305
+
+
+#Run BOTH BIC on empty model:
+bothBIC.empty = step(model.eng.empty, scope, direction = "both", k = log(50))
+#Result: same as forward BIC
+
+#Run BOTH BIC on full model:
+bothBIC.full = step(model.eng.full, scope, direction = "both", k = log(50))
+#Result:same as backward BIC
+
+AIC(model.eng.saturated, model.eng.forAIC, model.eng.backAIC, model.eng.forBIC, model.eng.backBIC)
+```
+Results:
+*Backward AIC wins again! This time around, less features make the cut which makes sense because we'd combined features in feature engineering phase. Another observation here is that backward AIC again has the lowest AIC score, has the same RSE as the baseline (saturated) model, and a just slightly lower R^2.
+
+
+## Feature Selection #4: Lasso on Feature-Engineered Data Set:
+
+
+```{r Lasso Feature-Engineered}
+
+x <- model.matrix(TransSalePrice ~ ., data = ames.eng)
+y <- ames.eng$TransSalePrice
+
+set.seed(21)
+#Create train and test set:
+train = sample(1:nrow(x), 75*nrow(x)/100)
+test = (-train)
+y.test = y[test]
+#test above to ensure accuracy:
+length(train)/nrow(x)
+length(y.test)/nrow(x)
+
+#create grid for lambda iterations 100,000 - 0.01
+grid <- 10^seq(5, -2, length = 100)
+
+#Fit lasso with grid search iterator
+lasso.eng.models <- glmnet(x, y, alpha = 1, lambda = grid)
+dim(coef(lasso.eng.models))
+coef(lasso.eng.models)
+#plot feature penalties as lambda decreases
+plot(lasso.eng.models, xvar = "lambda", label = TRUE, main = "Lasso Regression")
+
+#CROSS VALIDATION
+#fit lasso regressor on training set with grid search on lambda
+lasso.models.train <- glmnet(x[train, ], y[train], alpha = 1, lambda = grid)
+lasso.lambda10 <- predict(lasso.models.train, s = 10, newx = x[test, ])
+mean((lasso.lambda10 - y.test)^2)
+#MSE: 0.1785
+lasso.lambda1 <- predict(lasso.models.train, s = 1, newx = x[test, ])
+mean((lasso.lambda1 - y.test)^2)
+#MSE: 0.1785
+lasso.lambda.1 <- predict(lasso.models.train, s = 0.1, newx = x[test, ])
+mean((lasso.lambda.1 - y.test)^2)
+#MSE: 0.0535 BETTER
+lasso.lambda.05 <- predict(lasso.models.train, s = 0.05, newx = x[test, ])
+mean((lasso.lambda.05 - y.test)^2)
+#MSE: 0.0340 EVEN BETTER - ok, super small lambda.
+
+
+# k-Folds Cross Validation, k = 10
+set.seed(21)
+cv.lasso.out <- cv.glmnet(x[test, ], y[test], lambda = grid, alpha = 1, nfolds = 10)
+plot(cv.lasso.out, main = "Lasso Regression")
+#observation: due to log range of transformed y, we might need to refit a smaller lambda grid
+#to validate, let's try a lambda even smaller than our first grid
+lasso.lambda.005 <-predict(lasso.models.train, s = 0.005, newx = x[test, ])
+mean((lasso.lambda.005 - y.test)^2)
+#MSE: 0.0223:
+#Result: Yup, we're going to need a smaller lambda
+
+#create grid for lambda iterations 0.01 - (10^-10)
+grid2 <- 10^seq(-2, -10, length = 100)
+
+#Fit lasso with grid search iterator
+lasso.eng.models <- glmnet(x, y, alpha = 1, lambda = grid2)
+dim(coef(lasso.eng.models))
+coef(lasso.eng.models)
+#plot feature penalties as lambda decreases
+plot(lasso.eng.models, xvar = "lambda", label = TRUE, main = "Lasso Regression")
+#Visualization shows this a much more optimal lambda range
+
+#CROSS VALIDATION
+#fit lasso regressor on training set with grid search on lambda
+lasso.models.train <- glmnet(x[train, ], y[train], alpha = 1, lambda = grid2)
+lasso.lambda.0001 <- predict(lasso.models.train, s = 0.0001, newx = x[test, ])
+mean((lasso.lambda.0001 - y.test)^2)
+#MSE: 0.0779 - ok, we're on our way back up again. Optimal lambda must be somewhere between 0.005 and 0.0001. Let's continue refining where we left off; now with grid2.
+
+set.seed(21)
+cv.lasso.out2 <- cv.glmnet(x[test, ], y[test], lambda = grid2, alpha = 1, nfolds = 10)
+plot(cv.lasso.out2, main = "Lasso Regression")
+
+bestlambda.lasso2 <- cv.lasso.out2$lambda.min
+bestlambda.lasso2 #0.00689
+log(bestlambda.lasso2)
+#Best Log Lambda = -4.9773
+
+#What is the test MSE associated with best lasso lambda?
+lasso.bestlambdatrain2 <- predict(lasso.models.train, s = bestlambda.lasso2, newx = x[test, ])
+mean((lasso.bestlambdatrain2 - y.test)^2)
+#Best MSE: 0.021513
+
+#Now fit lasso with best lambda and identify coefficients
+lasso.model.em2 <- glmnet(x, y, alpha = 1, lambda = bestlambda.lasso2)
+predict(lasso.model.em2, type = "coefficients", s = bestlambda.lasso2)
+lasso.models.train.cv <- cv.glmnet(x[train, ], y[train], alpha = 1, lambda = grid2)
+max(1 - lasso.models.train.cv$cvm/var(y))
+#R^2: 0.8382
+
+```
+
+## Conclusion:
+Through this iterative process, we have come up with four sets of features that may give us an optimal model.
+Seeing as SalePrice has a right skew; it is likely that the third and fourth feature sets (with SalePrice transformed with log1p and engineered-features) will likely contain the optimal model. This inference is grounded in the fact that feature set #3 has MUCH lower AIC scores and MSE's, but higher R^2 than feature set #1; and feature set #4 has a much lower MSE and higher R^2 than feature set #2.
+We have noted all feature sets, optimal lambda values, RSE's, and MSE's to include and compare in Jimmy & Rajesh's concurent pipelines.
