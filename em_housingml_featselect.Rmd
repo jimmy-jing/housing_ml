@@ -313,6 +313,12 @@ Results:
 
 
 ```{r Lasso Feature-Engineered}
+library(glmnet)
+head(ames.eng)
+library(dplyr)
+unique(ames.eng$MSSubClass)
+#change format of MSSubClass from numeric to character type
+ames.eng$MSSubClass <- as.character(ames.eng$MSSubClass)
 
 x <- model.matrix(TransSalePrice ~ ., data = ames.eng)
 y <- ames.eng$TransSalePrice
@@ -380,7 +386,7 @@ plot(lasso.eng.models, xvar = "lambda", label = TRUE, main = "Lasso Regression")
 lasso.models.train <- glmnet(x[train, ], y[train], alpha = 1, lambda = grid2)
 lasso.lambda.0001 <- predict(lasso.models.train, s = 0.0001, newx = x[test, ])
 mean((lasso.lambda.0001 - y.test)^2)
-#MSE: 0.0779 - ok, we're on our way back up again. Optimal lambda must be somewhere between 0.005 and 0.0001. Let's continue refining where we left off; now with grid2.
+#MSE: 0.0760 - ok, we're on our way back up again. Optimal lambda must be somewhere between 0.005 and 0.0001. Let's continue refining where we left off; now with grid2.
 
 set.seed(21)
 cv.lasso.out2 <- cv.glmnet(x[test, ], y[test], lambda = grid2, alpha = 1, nfolds = 10)
@@ -401,7 +407,7 @@ lasso.model.em2 <- glmnet(x, y, alpha = 1, lambda = bestlambda.lasso2)
 predict(lasso.model.em2, type = "coefficients", s = bestlambda.lasso2)
 lasso.models.train.cv <- cv.glmnet(x[train, ], y[train], alpha = 1, lambda = grid2)
 max(1 - lasso.models.train.cv$cvm/var(y))
-#R^2: 0.8382
+#R^2: 0.8479
 
 ```
 
