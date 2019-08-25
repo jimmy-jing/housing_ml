@@ -62,11 +62,10 @@ class HousingImpute:
         for i in range(len(null_counter)):
             if null_counter[i] > 0:
                 print(self.df.columns[i] , null_counter[i])
-                columns_missing.append(self.df.columns[i])
-                
+                columns_missing.append(self.df.columns[i])    
         for column in columns_missing:
             if (column not in train_missing):
-                print('{column} does not have a current impute method'.format(column))
+                print('{} does not have a current impute method'.format(column))
                 new_missing.append(column)
                 columns_missing.remove(column)
                 

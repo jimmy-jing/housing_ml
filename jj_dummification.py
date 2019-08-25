@@ -73,6 +73,7 @@ class HousingCategorical():
         all three instance attributes can be overwritten after init for customization.
         please use list_checker if user overwrites to make sure information is compliant
         '''
+        self.mode = 'Train'
         self.df = pd.read_csv('train_imputed.csv', index_col=0)
         self.label_encode_features = ['ExterQual','ExterCond','BsmtQual','BsmtCond','BsmtExposure',
                                       'HeatingQC','KitchenQual','FireplaceQu','GarageFinish','GarageQual',
@@ -83,7 +84,9 @@ class HousingCategorical():
                              'HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType',
                              'Foundation','BsmtFinType1','BsmtFinType2','Heating','CentralAir','Electrical',
                              'Functional','GarageType','PavedDrive','Fence','MiscFeature','SaleType',
-                             'SaleCondition','MoSold','YrSold']
+                             'SaleCondition','MoSold','YrSold','ExterQual','ExterCond','BsmtQual','BsmtCond',
+                             'BsmtExposure','HeatingQC','KitchenQual','FireplaceQu','GarageFinish','GarageQual',
+                             'GarageCond','PoolQC']
 
         
     def one_hot_encode(self):
@@ -102,9 +105,11 @@ class HousingCategorical():
                     new_column_names.append(self.ohe_features[i]+'_'+str(j))
         
         ohe_df = pd.DataFrame(ohe_df, columns=new_column_names)
-        ohe_df.index = range(1,1461)
+        
+        ohe_df.index = self.df.index
         self.df = pd.merge(self.df.drop(columns=self.ohe_features),ohe_df, left_index=True, right_index=True)
-        self.move_sale_price_to_right()
+        if self.mode == 'Train':
+            self.move_sale_price_to_right()
         
     def label_encode(self):
         #create instance of LabelEncoders to label encode all necessary features from 0-n
