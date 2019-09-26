@@ -1,6 +1,9 @@
 # housing_ml
 
-ml housing project for nyc dsa
-please name all your files with ur initials i.e. jj_eda.ipynb
+ML housing project for NYC Data Science Academy
+Goal: Use multiple linear regression to predict house prices in Ames, Iowa.
 
-https://www.kaggle.com/c/house-prices-advanced-regression-techniques/overview
+Files named starting with initials i.e. jj_eda.ipynb
+
+Original Kaggle Competition: https://www.kaggle.com/c/house-prices-advanced-regression-techniques/overview
+Blog Post: https://nycdatascience.com/blog/student-works/house-prices-advanced-regression-techniques-2/
